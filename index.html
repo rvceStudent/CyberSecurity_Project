@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Self-Healing Firewall Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="container">
+
+    <h1>🛡 Self-Healing Firewall Dashboard</h1>
+
+    <p id="statusText" class="status stopped">Status: STOPPED</p>
+
+    <div class="controls">
+        <button class="btn start" onclick="startFirewall()">Start Firewall</button>
+        <button class="btn stop" onclick="stopFirewall()">Stop Firewall</button>
+    </div>
+
+    <h2>📊 Firewall Analytics</h2>
+
+    <div class="charts-grid">
+
+        <div class="chart-box">
+            <h3>Firewall Actions</h3>
+            <canvas id="actionChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <h3>Threat Score Over Time</h3>
+            <canvas id="threatChart"></canvas>
+            <p id="latestThreat">🔥 Latest Threat Score: --</p>
+        </div>
+
+    </div>
+</div>
+
+<script>
+let actionChart, threatChart;
+
+function loadCharts() {
+    fetch("/api/stats")
+        .then(res => res.json())
+        .then(data => {
+
+            // STATUS
+            const statusText = document.getElementById("statusText");
+            statusText.innerText = "Status: " + data.status;
+            statusText.className = "status " + (data.status === "RUNNING" ? "running" : "stopped");
+
+            // ACTION CHART
+            if (actionChart) actionChart.destroy();
+            actionChart = new Chart(actionChartCanvas, {
+                type: "doughnut",
+                data: {
+                    labels: ["Blocked", "Rate Limited"],
+                    datasets: [{
+                        data: [data.blocked, data.rate_limited],
+                        backgroundColor: ["#ff4d4d", "#ffa502"]
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // THREAT CHART
+            if (threatChart) threatChart.destroy();
+            threatChart = new Chart(threatChartCanvas, {
+                type: "line",
+                data: {
+                    labels: data.threat_scores.map((_, i) => i + 1),
+                    datasets: [{
+                        label: "Threat Score",
+                        data: data.threat_scores,
+                        borderColor: "#4bc0c0",
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { min: 0, max: 1 } }
+                }
+            });
+
+            if (data.threat_scores.length > 0) {
+                document.getElementById("latestThreat").innerText =
+                    "🔥 Latest Threat Score: " + data.threat_scores.at(-1).toFixed(2);
+            }
+        });
+}
+
+function startFirewall() {
+    fetch("/api/start", { method: "POST" }).then(loadCharts);
+}
+
+function stopFirewall() {
+    fetch("/api/stop", { method: "POST" }).then(loadCharts);
+}
+
+const actionChartCanvas = document.getElementById("actionChart");
+const threatChartCanvas = document.getElementById("threatChart");
+
+setInterval(loadCharts, 5000);
+loadCharts();
+</script>
+
+</body>
+</html>
