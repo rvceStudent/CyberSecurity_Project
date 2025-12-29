@@ -1,0 +1,9 @@
+[Unit]
+Description=AI Self Healing Firewall
+
+[Service]
+ExecStart=/usr/bin/python3 /home/user/self_healing_firewall/src/main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
